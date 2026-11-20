@@ -17,11 +17,15 @@ const handler = (await import(join(ROOT, 'api/price.js'))).default;   // the rea
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
                '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.csv': 'text/csv' };
 
+// JSON is not safe inside <script>: a "</script>" in any string (a crafted symbol or basket name, from a
+// file or an email) ends the tag and runs what follows. Escape what HTML cares about; JS reads it back as-is.
+const js = v => JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+  .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 async function seed() {   // read per request, so a rebuilt map/live.json shows on reload
   const map = await readFile(join(HERE, '_smallcase_map.json'), 'utf8');
   const trades = await readFile(join(HERE, '_trades_seed.json'), 'utf8');
-  return `<script>try{localStorage.setItem('sc_basket_data',JSON.stringify({text:${JSON.stringify(map)},` +
-         `at:new Date().toISOString()}));localStorage.setItem('sc_trades_v2',${JSON.stringify(trades)});}` +
+  return `<script>try{localStorage.setItem('sc_basket_data',JSON.stringify({text:${js(map)},` +
+         `at:new Date().toISOString()}));localStorage.setItem('sc_trades_v2',${js(trades)});}` +
          `catch(e){console.error('seed failed',e)}</script>`;
 }
 

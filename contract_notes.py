@@ -16,6 +16,12 @@ with the PAN, read from the OS keychain (service "netfolio", account "pan") per 
 anywhere. Gmail access reuses an existing read-only consent from the keychain (StatementLens's),
 so no second Google login is needed.
 
+A note is only TRUSTED if it is really from the broker: the From address is exactly Zerodha's,
+Gmail's own Authentication-Results (the first one - later ones can be written by the sender)
+shows DKIM and DMARC passing for zerodha.net, and the PDF is password-locked, as every genuine
+note is. Anyone can send an email that says it is from Zerodha; it is the signature that cannot be
+forged.
+
 A note is REFUSED, never half-used, unless its own sums hold:
   1. per ISIN and side, the fills add up to the summary's quantity, and to quantity x its gross
      average price (fills are gross; the summary's totals are AFTER brokerage, which is charged on
@@ -31,7 +37,8 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 P = lambda n: os.path.join(HERE, n)
 STORE = P('_contract_notes.json')            # private: git-ignored by the allowlist
-QUERY = 'from:no-reply-contract-notes@reportsmailer.zerodha.net has:attachment filename:pdf'
+SENDER = 'no-reply-contract-notes@reportsmailer.zerodha.net'
+QUERY = f'from:{SENDER} has:attachment filename:pdf'
 
 
 class ContractNoteError(ValueError):
@@ -41,7 +48,7 @@ class ContractNoteError(ValueError):
 _NUM = r'\(?[−-]?[\d,]+\.\d{2,4}\)?'
 num = lambda s: (-1 if s.startswith('(') or s.lstrip('(').startswith(('−', '-')) else 1) * float(
     re.sub(r'[(),−-]', '', s))
-FILL = re.compile(r'^(\d{10,20})\s+(\d\d:\d\d:\d\d)\s+(\d+)\s+(\d\d:\d\d:\d\d)\s+(\S+)/([A-Z]{2}[A-Z0-9]{9}\d)\s+'
+FILL = re.compile(r'^(\d{10,20})\s+(\d\d:\d\d:\d\d)\s+(\d+)\s+(\d\d:\d\d:\d\d)\s+([A-Z0-9&_.\-]{1,30})/([A-Z]{2}[A-Z0-9]{9}\d)\s+'
                   r'([BS])\s+(NSE|BSE)\s+(\d+)\s+(' + _NUM + r')\s+(' + _NUM + r')\s+(?:(' + _NUM + r')\s+)?(' + _NUM + r')\s*$')
 SUMMARY = re.compile(r'^([A-Z]{2}[A-Z0-9]{9}\d)\s+(.+?)\s+(\d+)\s+(' + _NUM + r')\s+(' + _NUM + r')\s+(' + _NUM + r')\s+(' + _NUM +
                      r')\s+(\d+)\s+(' + _NUM + r')\s+(' + _NUM + r')\s+(' + _NUM + r')\s+(' + _NUM + r')\s+([−-]?\d+)\s+(' + _NUM + r')\s*$')
@@ -56,6 +63,25 @@ def _symbol(desc):
     if not m:
         return desc
     return m.group(1) if m.group(2) == 'EQ' else desc
+
+
+def genuine(doc):
+    """None if the email really came from Zerodha's contract-note address, else why not (fail closed).
+    The signature check is inboxkit's Document.authenticated: Gmail's own verdict, DKIM + DMARC."""
+    m = re.search(r'<([^>]+)>', doc.sender or '')
+    if (m.group(1) if m else (doc.sender or '')).strip().lower() != SENDER:
+        return "not sent from Zerodha's contract-note address"
+    return doc.authenticated(SENDER.split('@', 1)[1])
+
+
+def locked(data):
+    """A genuine contract note is always password-protected; an open PDF did not come from the broker."""
+    import io, pikepdf
+    try:
+        with pikepdf.open(io.BytesIO(data)):
+            return False
+    except pikepdf.PasswordError:
+        return True
 
 
 def parse(text):
@@ -135,6 +161,10 @@ def fetch(since=None):
     docs = src.fetch(skip_ids=set(have))
     new, bad = 0, []
     for d in docs:
+        why = genuine(d) or (None if locked(d.data) else 'PDF is not password-locked')
+        if why:
+            bad.append(f'{d.subject}: {why}')
+            continue
         try:
             note = parse(PdfTextExtractor().extract(PdfDecryptor().decrypt(d.data, {'pan': pan})))
         except Exception as e:                      # refuse the note, keep going, say so
@@ -164,7 +194,7 @@ if __name__ == '__main__':
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
             from tradebook import load_all
-            TR, _, _ = load_all()
+            TR, _, _ = load_all(notes=False)        # the Excel exports alone: comparing notes to notes proves nothing
         last = max(t['d'] for t in TR)
         tb = {t['id']: t for t in TR}
         cn = [t for t in trades() if t['d'] <= last]

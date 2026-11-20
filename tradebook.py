@@ -73,7 +73,7 @@ def _covered(g):
     return _months(*g) <= have
 
 
-def load_all(verbose=True):
+def load_all(verbose=True, notes=True):
     """Returns (trades, files, gaps). Trades are sorted by date, buys before sells same-day."""
     seen, files = {}, []
     COVERAGE.clear()
@@ -129,7 +129,7 @@ def load_all(verbose=True):
     # key - verified fill for fill on every shared day. For days only the notes cover, their real fills
     # replace the map's hand-recorded ones, because map_fills only emits days after the newest trade here.
     cnp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_contract_notes.json')
-    if os.path.exists(cnp):
+    if notes and os.path.exists(cnp):
         n = 0
         for note in json.load(open(cnp)).values():
             for t in note['trades']:

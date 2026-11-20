@@ -54,3 +54,8 @@ def test_only_a_signed_mail_from_the_broker_is_genuine():
     assert cn.genuine(mk(spoof)), 'an unsigned mail passed'
     other = [good[0], ('From', 'Broker <notes@evil.example>')] + good[2:]
     assert cn.genuine(mk(other)), 'a different sender passed'
+    old = 'no-reply-contract-notes@qmailer.zerodha.net'           # the pre-Feb-2022 address
+    cross = [good[0], ('From', f'Broker <{old}>')] + good[2:]     # signed by reportsmailer, From qmailer
+    assert cn.genuine(mk(cross)), "one address's signature vouched for the other"
+    own = [(good[0][0], auth.replace('reportsmailer', 'qmailer')), ('From', f'Broker <{old}>')] + good[2:]
+    assert cn.genuine(mk(own)) is None, 'the old address, signed by its own domain, was refused'

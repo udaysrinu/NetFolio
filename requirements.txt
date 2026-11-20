@@ -1,2 +1,2 @@
-inboxkit[gmail] @ git+https://github.com/udaysrinu/inboxkit@v0.3.6
+inboxkit[gmail] @ git+https://github.com/udaysrinu/inboxkit@v0.3.7
 openpyxl>=3.1

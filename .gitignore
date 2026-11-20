@@ -1,0 +1,18 @@
+# Netfolio: CODE ONLY. Everything here is ignored unless re-included below, because this folder also
+# holds private data: tradebooks, holdings snapshots, the basket map, live.json, research, screenshots.
+# Re-include a file deliberately. Never `git add -f` data.
+*
+!.gitignore
+!README.md
+!LICENSE
+!*.py
+!*.mjs
+!ui_check.js
+!_chrome.sh
+!_winid.swift
+!tests/
+!tests/*.py
+# account-specific scripts: hardcoded holdings, basket keys, position sizes. They stay local.
+avalon_tech.py
+_pnl_now.py
+bucket_report.py

@@ -28,7 +28,7 @@ Part of a small family:
     python3 build_live.py <snap>  reconcile the basket map against holdings -> live.json for the pages
     node _devserver.mjs           serve the pages on http://localhost:8899 with your data injected
 
-Needs Python 3.10+ with `openpyxl`, and Node 18+ for the page checks.
+Needs Python 3.10+ (`pip install -r requirements.txt`) and Node 18+ for the page checks.
 
 ## Your data (stays on your machine, next to the code)
 

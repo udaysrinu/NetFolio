@@ -50,7 +50,7 @@ def test_only_a_signed_mail_from_the_broker_is_genuine():
     good = [('Authentication-Results', auth), ('From', f'Broker <{cn.SENDER}>'), ('Subject', 's'), ('Date', 'd')]
     mk = lambda h: Document('m', 'n.pdf', b'', subject='s', sender=dict(h)['From'], headers=h)
     assert cn.genuine(mk(good)) is None
-    spoof = [('Authentication-Results', auth.replace('dkim=pass', 'dkim=fail'))] + good[1:]
+    spoof = [('Authentication-Results', auth.replace('dmarc=pass', 'dmarc=fail'))] + good[1:]
     assert cn.genuine(mk(spoof)), 'an unsigned mail passed'
     other = [good[0], ('From', 'Broker <notes@evil.example>')] + good[2:]
     assert cn.genuine(mk(other)), 'a different sender passed'

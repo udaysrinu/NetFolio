@@ -38,6 +38,12 @@ class H(SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **kw)
 
     def do_GET(self):
+        # DNS rebinding guard, same as _devserver.mjs: a hostile page that points its own domain at
+        # 127.0.0.1 would otherwise read these pages and the snapshot's prices as same-origin. Its
+        # requests still carry ITS hostname, so accept only our own.
+        if (self.headers.get('Host') or '').lower() not in (f'localhost:{port}', f'127.0.0.1:{port}'):
+            self.send_error(403, 'forbidden host')
+            return
         u = urlparse(self.path)
         if u.path != '/api/price':
             return super().do_GET()

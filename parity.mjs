@@ -5,7 +5,9 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 // the sharecase checkout, beside this repo unless SHARECASE_REPO says otherwise
-const REPO = process.env.SHARECASE_REPO || new URL('../folio-terminal/', import.meta.url).pathname;
+// with a trailing slash either way: the README's `SHARECASE_REPO=/path/to/sharecase` has none, and REPO+file
+// then read '/path/to/sharecasebasket.html'
+const REPO = (process.env.SHARECASE_REPO || new URL('../folio-terminal/', import.meta.url).pathname).replace(/\/?$/, '/');
 const stub = () => new Proxy(function(){}, { get: (t, k) => k === Symbol.toPrimitive ? () => '' : stub(),
                                              apply: () => stub(), set: () => true });
 function load(file) {

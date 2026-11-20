@@ -476,13 +476,13 @@ try:
           f"{rup(_js['dashboard_total'])} vs {rup(_py['total'])}")
     # The public CLI (build_dashboard.py) is the FOURTH FIFO, the one other users run on their exports.
     # Would catch: it drifting from the page it feeds - it had no same-day netting until 13 Nov 2026.
-    sys.path.insert(0, os.path.join(HERE, '..', 'folio-terminal'))
+    sys.path.insert(0, os.environ.get('SHARECASE_REPO') or os.path.join(HERE, '..', 'folio-terminal'))
     import build_dashboard as _BD
     _cli = sum(t['pnl'] for t in _BD.fifo([dict(t) for t in json.load(open(P('live.json')))['_trades']])[0])
     check('build_dashboard.py total realised == Python', abs(_cli - _py['total']) < 0.01,
           f"{rup(_cli)} vs {rup(_py['total'])}")
-except (StopIteration, IndexError, subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError) as e:
-    check('parity harness ran', False, repr(e))
+except (StopIteration, IndexError, ImportError, subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError) as e:
+    check('parity harness ran', False, repr(e))   # a FAIL, never a crash that skips the verdict
 
 # 9. HOSTILE INPUT. A basket sheet is a file a friend sends, and an upload can be anything: both pages
 # interpolate symbols into HTML, so markup in a symbol or a basket name was script on this origin, where

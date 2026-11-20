@@ -24,6 +24,30 @@ Part of a small family:
 
 How it fits together, with diagrams: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
+## Try it without your data
+
+    python3 demo.py               a made-up portfolio, run through the real pipeline, served on :8901
+
+It invents three baskets of large caps traded since 2023 at real NSE closes, then runs the same scripts
+on them as on your own data, test gate included. It works in a temporary folder and on its own port, so it
+never touches your files or your saved pages. Every screenshot below comes from it.
+
+## Screenshots
+
+![The Dashboard on the demo portfolio: combined profit with realised, unrealised and worth-now tiles, and the start of the basket list](docs/img/dashboard.png)
+
+![Each basket opens to its stocks, biggest fall first, above the best and worst holdings across all baskets](docs/img/dashboard-baskets.png)
+
+![Portfolio vs Nifty 50, time-weighted and cash-flow adjusted since the first trade, above realised profit by month](docs/img/dashboard-performance.png)
+
+![Realised by month, with a month opened to show each stock sold, its buy and sell prices and the profit booked](docs/img/dashboard-months.png)
+
+![A stock's sheet: its price history with the buys and sells marked, what was booked, and what keeping the shares would be worth today](docs/img/stock-sheet.png)
+
+![The same sheet further down: each sale against holding to today, with a total, then every trade](docs/img/stock-sheet-sales.png)
+
+![The Tracker: each basket's invested, value, unrealised, return, realised and total, one basket opened to its holdings](docs/img/tracker.png)
+
 ## Run
 
 The daily refresh, in this order:

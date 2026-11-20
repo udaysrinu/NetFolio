@@ -24,7 +24,7 @@ for k, v in PX.items():
             ALIAS[k[:-len(suf)]] = v          # ACME-BE held  -> answer a request for ACME
     for suf in SERIES:
         ALIAS.setdefault(k + suf, v)          # ACME held     -> answer a request for ACME-BE
-ROOT = os.path.join(os.path.dirname(HERE), 'folio-terminal')
+ROOT = os.environ.get('SHARECASE_REPO') or os.path.join(os.path.dirname(HERE), 'folio-terminal')
 
 # Read the real handler's cap out of the real handler. A shim that is MORE permissive than production
 # is worse than no shim: it reports success on input production rejects. That is exactly what happened

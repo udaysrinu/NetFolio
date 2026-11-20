@@ -14,6 +14,10 @@
 !_winid.swift
 !tests/
 !tests/*.py
+# screenshots: ONLY from demo.py's made-up portfolio, never your own data
+!docs/
+!docs/img/
+!docs/img/*.png
 # account-specific scripts: hardcoded holdings, basket keys, position sizes. They stay local.
 avalon_tech.py
 _pnl_now.py

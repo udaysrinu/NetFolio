@@ -12,7 +12,10 @@ import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', 'folio-terminal');
+const ROOT = process.env.SHARECASE_REPO || join(HERE, '..', 'folio-terminal');
+// demo.py serves its made-up portfolio on another port: another port is another browser origin, so the
+// demo's seed can never overwrite the localStorage your real :8899 pages keep.
+const PORT = Number(process.env.NETFOLIO_PORT) || 8899;
 const handler = (await import(join(ROOT, 'api/price.js'))).default;   // the real /api/price
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
                '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.csv': 'text/csv' };
@@ -35,7 +38,7 @@ setInterval(async () => { try { SEED = await seed(); } catch {} }, 5000);
 // DNS rebinding guard. Binding to 127.0.0.1 is not enough: a hostile page can point its own domain at
 // 127.0.0.1, and the browser then treats this server as same-origin with that page and lets it read
 // live.json and the injected portfolio. Its requests still carry ITS hostname, so accept only our own.
-const HOSTS = new Set(['localhost:8899', '127.0.0.1:8899']);
+const HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`]);
 http.createServer(async (req, res) => {
   if (!HOSTS.has(String(req.headers.host || '').toLowerCase())) {
     res.statusCode = 403; return res.end('forbidden host');
@@ -66,5 +69,5 @@ http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.end(body);
   } catch { res.statusCode = 404; res.end('not found'); }
-}).listen(8899, '127.0.0.1', () => console.log('http://localhost:8899/baskets.html'));
+}).listen(PORT, '127.0.0.1', () => console.log(`http://localhost:${PORT}/baskets.html`));
 

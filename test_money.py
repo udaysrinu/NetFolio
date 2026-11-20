@@ -493,13 +493,6 @@ _x = subprocess.run(['node', P('xss_test.mjs')], capture_output=True, text=True)
 check('basket sheets and uploads reject or escape markup', _x.returncode == 0,
       '' if _x.returncode == 0 else (_x.stdout + _x.stderr)[-300:])
 
-print(f"\n{'='*66}")
-if FAIL:
-    print(f"{len(FAIL)} FAILED:")
-    for f in FAIL:
-        print(f'   - {f}')
-    sys.exit(1)
-print('all invariants hold')
 
 
 # ---------------------------------------------------------------- 8. daily mark-to-market vs FIFO books
@@ -528,3 +521,14 @@ if os.path.exists(P('_daily_perf.csv')):
               abs(_mtm - _acc) < 50, f'{rup(_mtm)} vs {rup(_acc)}')
 else:
     print('      note: no _daily_perf.csv - run _daily.py')
+
+
+# The verdict comes LAST: it used to sit above section 8, so a daily-P&L failure printed FAIL and still
+# exited 0, and anything trusting the exit code (a scheduled run) would have passed a broken book.
+print(f"\n{'='*66}")
+if FAIL:
+    print(f"{len(FAIL)} FAILED:")
+    for f in FAIL:
+        print(f'   - {f}')
+    sys.exit(1)
+print('all invariants hold')

@@ -5,7 +5,10 @@ baskets: every trade FIFO-matched the way Zerodha does it, cost basis that equal
 daily performance against Nifty since your first trade. Mutual funds, NPS, FDs, loans and bank balances
 come next, adding up to net worth.
 
-Netfolio runs on your own machine. Your tradebooks, holdings and statements never leave it: this repo
+Trades arrive by themselves: Netfolio reads your broker's contract notes from Gmail, proves each one
+was signed by the broker, and checks its sums before using it. No exports to download.
+
+Netfolio runs on your own machine. Your trades, holdings and statements never leave it: this repo
 is code only. Every file of personal data is git-ignored by an allowlist, so an accidental `git add .`
 can't publish it.
 
@@ -19,20 +22,37 @@ Part of a small family:
 > **Early and personal.** This was built for one account first. The core (FIFO, daily performance,
 > attribution, the invariant checks) is generic, but expect rough edges.
 
+How it fits together, with diagrams: **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
 ## Run
 
-    python3 tradebook.py          load every tradebook*.xlsx: trade count, date range, coverage gaps
+The daily refresh, in this order:
+
+    python3 contract_notes.py     new contract notes from Gmail -> _contract_notes.json (--check: vs tradebooks)
+    python3 _snapshot.py          last price + previous close for every holding -> _holdings_<date>.json
     python3 _daily.py [start]     daily value, P&L and time-weighted return vs Nifty -> _daily_perf.csv
+    python3 build_live.py <snap>  reconcile the basket map, embed the daily curve -> live.json for the pages
+    python3 test_money.py         the gate: every invariant on your data
+    node _devserver.mjs           serve the pages on http://localhost:8899 with your data injected
+
+The first `contract_notes.py` run reads the whole mailbox; backfill long histories in windows with
+`--since YYYY-MM-DD --until YYYY-MM-DD`. It needs your PAN in the keychain (it unlocks the PDFs):
+
+    security add-generic-password -s netfolio -a pan -w
+
+Reports:
+
+    python3 tradebook.py          every trade: count, date range, coverage gaps
     python3 attribute_sells.py    realised P&L per basket, dated by who held the stock on the sale day
     python3 realised.py           realised per symbol, with uncosted sells flagged
-    python3 build_live.py <snap>  reconcile the basket map against holdings -> live.json for the pages
-    node _devserver.mjs           serve the pages on http://localhost:8899 with your data injected
 
 Needs Python 3.10+ (`pip install -r requirements.txt`) and Node 18+ for the page checks.
 
 ## Your data (stays on your machine, next to the code)
 
-    tradebook*.xlsx         Zerodha Console exports. Merged and deduped on trade id, overlaps are safe.
+    _contract_notes.json    every fill and the day's charges, from the broker's signed contract notes.
+    tradebook*.xlsx         optional Zerodha Console exports: older history and a cross-check. Merged
+                            with the notes and deduped on (date, exchange, trade id), so overlaps are safe.
     _smallcase_map.json     which basket owns which shares, at what cost, and the account facts the
                             code must not hardcode: symbol aliases, price aliases for renamed tickers,
                             corporate actions, known quiet months, uncosted allotments.

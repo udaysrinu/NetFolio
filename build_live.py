@@ -51,6 +51,11 @@ def main(snap_path):
 
     # ---- fills the tradebook cannot contain yet, from the map's own rebalance records
     trades, _, _ = load_all(verbose=False)
+    # The Tracker page (and parity.mjs, which runs its code) seeds its trade list from _trades_seed.json.
+    # It was a one-off snapshot, so when contract notes added real fills it fell behind and the page
+    # disagreed with Python. Rewritten here from the same merged trades on every build, so it cannot lag.
+    json.dump({f"{t['d']}|{t['x']}|{t['id']}": {k: t[k] for k in ('s', 'd', 't', 'q', 'p', 'id', 'x', 'tm', 'isin')}
+               for t in trades}, open(P('_trades_seed.json'), 'w'))
     tb_last = max(t['d'] for t in trades)
     fills = [dict(f, oid=f['id']) for f in map_fills(M, tb_last, norm)]
 

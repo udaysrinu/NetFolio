@@ -124,6 +124,23 @@ def load_all(verbose=True):
             n += 1
         files.append((os.path.basename(f), n))
 
+    # Contract notes from Gmail (contract_notes.py) cover the days no export does yet. The broker's trade
+    # numbers ARE the tradebook's Trade IDs, so a day both cover dedupes on the same (date, exchange, id)
+    # key - verified fill for fill on every shared day. For days only the notes cover, their real fills
+    # replace the map's hand-recorded ones, because map_fills only emits days after the newest trade here.
+    cnp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_contract_notes.json')
+    if os.path.exists(cnp):
+        n = 0
+        for note in json.load(open(cnp)).values():
+            for t in note['trades']:
+                tid = (t['d'], t['x'], str(t['id']))
+                if tid in seen:
+                    continue
+                seen[tid] = {'s': base(t['s']), 'd': t['d'], 't': t['t'], 'q': float(t['q']), 'p': float(t['p']),
+                             'id': str(t['id']), 'x': t['x'], 'tm': t['tm'], 'isin': t['isin']}
+                n += 1
+        files.append(('_contract_notes.json (Gmail)', n))
+
     # FIFO order is CHRONOLOGICAL, and the export tells us the time - so use it. The previous key was
     # (date, buys-first, EXCHANGE, trade id), which sorted BSE before NSE regardless of clock time and
     # therefore consumed the wrong lots whenever one day held fills on both exchanges. Measured: a day

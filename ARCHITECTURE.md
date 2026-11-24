@@ -4,36 +4,11 @@ Netfolio runs on your own machine. The code is public; your data sits next to it
 never leaves the machine. One pipeline turns your broker's emails into a priced, reconciled
 portfolio, and a test gate checks every number before you look at it.
 
+The big-picture diagrams are draw.io: each PNG has its editable `.drawio` beside it in `docs/img/`.
+
 ## 1. Context
 
-```mermaid
-flowchart TB
-  subgraph EXT[" "]
-    direction LR
-    ZE["<b>Zerodha</b><br/>Kite · contract notes"]
-    BK["<b>Banks · NPS · FDs</b><br/>statements"]
-    SM["<b>smallcase</b><br/>rebalance lists"]
-    YH["<b>Yahoo Finance</b><br/>prices, no key"]
-  end
-  GM["<b>Gmail</b>"]
-  subgraph MAC["Your machine: personal data never leaves it"]
-    direction LR
-    KC[("OS keychain<br/>PAN · Gmail consent")] --> IK[["<b>inboxkit</b> (library)<br/>Gmail documents · PDF unlock<br/>sender check"]]
-    IK --> NF["<b>Netfolio</b><br/>what you own and owe<br/>stocks + smallcases today"]
-    IK --> SL["<b>StatementLens</b><br/>what you spend"]
-    SL -.->|"bank balances (planned)"| NF
-  end
-  SC["<b>sharecase</b> pages<br/>Dashboard · Tracker · Workbench"]
-  U(["You"])
-  ZE -->|"a contract note for every trading day"| GM
-  BK -->|"statements"| GM
-  GM -->|"read-only"| IK
-  SM -.->|"recorded in the basket map"| NF
-  NF -->|"live.json, served on localhost only"| SC
-  U --> SC
-  SC -->|"prices"| YH
-  SC -->|"basket orders, you confirm in Kite"| ZE
-```
+![Netfolio: Zerodha emails contract notes to Gmail; inboxkit reads them with the PAN from the keychain; Netfolio parses, runs FIFO and the test gate, and serves live.json to the sharecase pages on localhost](docs/img/overview.png)
 
 - **[inboxkit](https://github.com/udaysrinu/inboxkit)** finds the documents in Gmail, proves who sent
   them, and unlocks the PDFs. StatementLens uses the same library for bank statements.
@@ -43,37 +18,7 @@ flowchart TB
 
 ## 2. The pipeline
 
-```mermaid
-flowchart LR
-  subgraph IN["Inputs"]
-    direction TB
-    GM["Gmail<br/>contract notes"] --> CN["<b>contract_notes.py</b><br/>verify · unlock · parse · self-check"]
-    CN --> CNJ[("_contract_notes.json<br/>every fill + charges")]
-    XL[("Console tradebooks XLSX<br/>optional: older history, cross-check")]
-    MAP[("<b>_smallcase_map.json</b><br/>which basket owns each share<br/>✋ kept by hand")]
-    SN["<b>_snapshot.py</b><br/>Yahoo prices"] --> HS[("_holdings_DATE.json")]
-  end
-  subgraph CALC["Calculate"]
-    direction TB
-    LA["<b>tradebook.load_all()</b><br/>merge · dedupe on trade id"] --> FI["<b>fifo()</b><br/>same-day netting<br/>corporate actions"]
-    FI --> DY["<b>_daily.py</b><br/>daily value · TWR vs Nifty"]
-    DY --> DP[("_daily_perf.csv")]
-    FI --> BL["<b>build_live.py</b><br/>refuses to write on a mismatch"]
-    DP --> BL
-  end
-  subgraph OUT["Check and show"]
-    direction TB
-    LJ[("<b>live.json</b><br/>_trades_seed.json")] --> TM{"<b>test_money.py</b><br/>FIFO of notes == map<br/>Python == page JS<br/>daily P&L adds up"}
-    LJ --> DS["_devserver :8899<br/>your data"] --> PG["Dashboard · Tracker"]
-    PG -->|"every 30 s"| AP["/api/price → Yahoo"]
-  end
-  CNJ --> LA
-  XL --> LA
-  MAP --> BL
-  HS --> BL
-  BL --> LJ
-  MAP --> TM
-```
+![One daily run: 1 contract_notes.py, 2 _snapshot.py, 3 _daily.py, 4 build_live.py with the hand-kept basket map, 5 test_money.py, 6 the Dashboard and Tracker; any failure exits 1](docs/img/daily-run.png)
 
 Run in this order (each step reads what the one before it wrote):
 
@@ -94,63 +39,13 @@ Run in this order (each step reads what the one before it wrote):
   no basket, so rebalances are recorded in `_smallcase_map.json`, and the tests prove the map agrees
   with the broker's trades.
 
-### One run, in order
-
-```mermaid
-sequenceDiagram
-  actor You
-  participant CN as contract_notes.py
-  participant KC as OS keychain
-  participant IK as inboxkit
-  participant G as Gmail API
-  participant SN as _snapshot.py + _daily.py
-  participant Y as Yahoo
-  participant BL as build_live.py
-  participant TM as test_money.py
-  participant PG as Dashboard (browser)
-  You->>CN: run, the evening after a trading day
-  CN->>KC: SecretStore("netfolio").get("pan")
-  CN->>IK: GmailDocuments(QUERY).fetch(skip_ids = stored + refused)
-  IK->>G: messages.list · messages.get · attachments.get
-  G-->>IK: the new notes
-  IK-->>CN: Document[]
-  CN->>CN: genuine() · locked() · parse() → store or refuse
-  You->>SN: run
-  SN->>Y: last price + previous close · daily closes + Nifty
-  SN-->>SN: _holdings_DATE.json · _daily_perf.csv
-  You->>BL: run with the snapshot
-  BL-->>BL: reconcile the map, then write live.json or refuse
-  You->>TM: run
-  TM-->>You: "all invariants hold" (exit 0) or "N FAILED" (exit 1)
-  loop every 30 s while the page is open
-    PG->>PG: GET live.json and /api/price from the localhost server
-  end
-```
-
 ## 3. Contract notes: trusting a PDF from your inbox
 
 A broker must email a contract note for every day you trade, so the mailbox holds a complete trade
 record whether or not your machine was on. Anyone can send an email that claims to be from the broker,
 though, so a note is only used after it passes every gate below.
 
-```mermaid
-flowchart LR
-  subgraph A["1 · Is it really from the broker?"]
-    direction TB
-    Q["Gmail search: the broker's note addresses, with a PDF<br/>skip ids already stored or refused"] --> G1{"<b>genuine()</b><br/>From is exactly<br/>a known note address?"}
-    G1 -->|"yes"| G2{"<b>Document.authenticated()</b><br/>Gmail's own verdict:<br/>DMARC pass, aligned<br/>DKIM signed by that domain"}
-    G2 -->|"yes"| G3{"<b>locked()</b><br/>PDF password-locked?<br/>every genuine note is"}
-  end
-  subgraph B["2 · Do its own numbers add up?"]
-    direction TB
-    U["<b>PdfDecryptor</b><br/>unlock with the PAN<br/>read from the keychain, never written"] --> P["<b>parse()</b>: fills · summary · charges<br/>obligation · net<br/>every layout since 2022"]
-    P --> C{"1 fills == summary<br/>2 sells − buys == obligation<br/>3 obligation + charges == net<br/>4 each B/S matches its sign"}
-  end
-  G3 -->|"yes"| U
-  C -->|"yes"| S[("STORE<br/>_contract_notes.json")]
-  S --> K["--check<br/>every fill == the tradebooks"]
-  G1 & G2 & G3 & C -->|"no"| R["REFUSE<br/>keep the id + reason<br/>never half-used"]
-```
+![Trusting a contract note: genuine(), Document.authenticated() and locked() prove it came from the broker; parse() and its own sums prove it adds up; any failure refuses it with the reason](docs/img/contract-notes.png)
 
 - **Sender.** The From address must be one of the broker's contract-note addresses. Each address is
   checked against its own signing domain, so trusting an old address doesn't loosen the new one.

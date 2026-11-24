@@ -18,6 +18,7 @@
 !docs/
 !docs/img/
 !docs/img/*.png
+!docs/img/*.drawio
 # account-specific scripts: hardcoded holdings, basket keys, position sizes. They stay local.
 avalon_tech.py
 _pnl_now.py
